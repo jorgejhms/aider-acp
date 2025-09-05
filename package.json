@@ -7,5 +7,8 @@
   },
   "dependencies": {
     "@zed-industries/agent-client-protocol": "^0.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1"
   }
 }
