@@ -1,0 +1,29 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@zed-industries/agent-client-protocol':
+        specifier: ^0.1.2
+        version: 0.1.2
+
+packages:
+
+  '@zed-industries/agent-client-protocol@0.1.2':
+    resolution: {integrity: sha512-A1RCN7Uf09vngbhBVLiZENenKYOYD2OGiILLGXPaSBloDbem8xmLaDmrKQuYl0kjLJ1DcWmVaHUv97n1l5vJ6w==}
+
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+snapshots:
+
+  '@zed-industries/agent-client-protocol@0.1.2':
+    dependencies:
+      zod: 3.25.76
+
+  zod@3.25.76: {}

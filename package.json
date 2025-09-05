@@ -1,0 +1,11 @@
+{
+  "name": "aider-acp",
+  "author": {
+    "name": "Jorge Meneses",
+    "email": "jorgejhms@gmail.com",
+    "url": "http://github.com/jorgejhms"
+  },
+  "dependencies": {
+    "@zed-industries/agent-client-protocol": "^0.1.2"
+  }
+}
