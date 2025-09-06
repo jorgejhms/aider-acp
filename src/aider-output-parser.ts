@@ -37,32 +37,32 @@ export function parseAiderOutput(output: string): {
     const trimmedLine = line.trim();
 
     // Handle code blocks - use the original line to preserve exact formatting
-    if (line.startsWith("```")) {
-      if (inCodeBlock) {
-        // Exiting a code block - add the closing line
-        if (currentBlock.path !== undefined) {
-          currentBlock.content += line + "\n";
-          codeBlocks.push(currentBlock as CodeBlock);
-        }
-        currentBlock = {};
-        inCodeBlock = false;
-        // After a code block, we might be in user message
-        isUserMessage = true;
-      } else {
-        // Entering a new code block
-        const path = line.substring(3).trim();
-        currentBlock = { path, content: line + "\n" };
-        inCodeBlock = true;
-        isUserMessage = false;
-      }
-      continue;
-    }
+    // if (line.startsWith("```")) {
+    //   if (inCodeBlock) {
+    //     // Exiting a code block - add the closing line
+    //     if (currentBlock.path !== undefined) {
+    //       currentBlock.content += line + "\n";
+    //       codeBlocks.push(currentBlock as CodeBlock);
+    //     }
+    //     currentBlock = {};
+    //     inCodeBlock = false;
+    //     // After a code block, we might be in user message
+    //     isUserMessage = true;
+    //   } else {
+    //     // Entering a new code block
+    //     const path = line.substring(3).trim();
+    //     currentBlock = { path, content: line + "\n" };
+    //     inCodeBlock = true;
+    //     isUserMessage = false;
+    //   }
+    //   continue;
+    // }
 
-    if (inCodeBlock) {
-      // Preserve the original line including any leading/trailing whitespace
-      currentBlock.content += line + "\n";
-      continue;
-    }
+    // if (inCodeBlock) {
+    //   // Preserve the original line including any leading/trailing whitespace
+    //   currentBlock.content += line + "\n";
+    //   continue;
+    // }
 
     // Parse information lines
     const versionMatch = trimmedLine.match(/^Aider (v[0-9.]+\S*)/);
