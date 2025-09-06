@@ -153,8 +153,16 @@ export class AiderAcpAgent implements protocol.Agent {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     processManager.on("data", (data: string) => {
+      // Filtrar líneas que comienzan con '> ' (comandos duplicados)
+      const filteredData = data
+        .split('\n')
+        .filter(line => !line.startsWith('> '))
+        .join('\n');
+      
+      if (filteredData.trim().length === 0) return;
+
       // Acumular datos para parsear
-      const parsedOutput = parseAiderOutput(data);
+      const parsedOutput = parseAiderOutput(filteredData);
       
       // Formatear información de Aider si está presente
       if (Object.keys(parsedOutput.info).length > 0) {
