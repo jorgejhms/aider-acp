@@ -65,11 +65,16 @@ export class AiderAcpAgent implements protocol.Agent {
     }
 
     // Separar el contenido de texto y los recursos
-    const textContent = prompt.find((item) => item.type === "text");
+    const textContents = prompt.filter((item) => item.type === "text");
     const resources = prompt.filter((item) => item.type === "resource");
 
-    // Si no hay texto, usar cadena vacía
-    const promptText = textContent?.text || "";
+    // Combinar todos los textos y eliminar espacios vacíos
+    const promptText = textContents
+        .map(item => item.text?.trim() || "")
+        .filter(text => text.length > 0)
+        .join(" ")
+        .trim();
+    
     // Almacenar el último prompt para filtrarlo de la salida
     session.lastPromptText = promptText;
 
@@ -90,6 +95,9 @@ export class AiderAcpAgent implements protocol.Agent {
       });
     }
 
+    // Guardar el texto del prompt para enviarlo después de procesar los recursos
+    let finalPromptText = promptText;
+
     // Manejar recursos primero (archivos)
     if (resources.length > 0) {
       // Agregar todos los recursos usando comandos /add
@@ -103,9 +111,9 @@ export class AiderAcpAgent implements protocol.Agent {
           } else {
             filePath = uri;
           }
-          // Enviar comando /add silenciosamente
+          // Enviar comando /add
           session.aiderProcess.sendCommand(`/add ${filePath}`);
-
+          
           // Esperar a que se complete el turno antes de continuar
           await new Promise<void>((resolve) => {
             const listener = () => {
@@ -118,25 +126,24 @@ export class AiderAcpAgent implements protocol.Agent {
       }
     }
 
-    // Luego enviar el mensaje de texto si no está vacío
-    if (promptText.trim().length > 0) {
-      session.aiderProcess.sendCommand(promptText);
-    } else if (resources.length > 0) {
-      // Si solo hay recursos, enviar un comando vacío para procesar
-      session.aiderProcess.sendCommand("");
+    // Después de procesar todos los recursos, enviar el texto del prompt si existe
+    if (finalPromptText.trim().length > 0) {
+      session.aiderProcess.sendCommand(finalPromptText);
+      // Esperar a que se complete el turno
+      return new Promise((resolve) => {
+        const turnCompletedListener = () => {
+          session.aiderProcess?.removeListener(
+            "turn_completed",
+            turnCompletedListener,
+          );
+          resolve({ stopReason: "end_turn" });
+        };
+        session.aiderProcess?.once("turn_completed", turnCompletedListener);
+      });
+    } else {
+      // Si no hay texto, simplemente terminar
+      return { stopReason: "end_turn" };
     }
-
-    // Esperar a que se complete el turno final
-    return new Promise((resolve) => {
-      const turnCompletedListener = () => {
-        session.aiderProcess?.removeListener(
-          "turn_completed",
-          turnCompletedListener,
-        );
-        resolve({ stopReason: "end_turn" });
-      };
-      session.aiderProcess?.once("turn_completed", turnCompletedListener);
-    });
   }
 
   private setupAiderListeners(
