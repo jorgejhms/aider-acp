@@ -1,6 +1,7 @@
 import * as protocol from "@zed-industries/agent-client-protocol";
 import { SessionState } from "./types.js";
 import { AiderProcessManager, AiderState } from "./aider-runner.js";
+import { parseAiderOutput, formatAiderInfo } from "./aider-output-parser.js";
 
 export class AiderAcpAgent implements protocol.Agent {
   private sessions: Map<string, SessionState> = new Map();
@@ -145,61 +146,47 @@ export class AiderAcpAgent implements protocol.Agent {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     processManager.on("data", (data: string) => {
-      // Filtrar líneas vacías o solo el prompt '>'
-      if (data.trim() === ">" || data.trim().length === 0) return;
-
-      // Filtrar comandos ecoados que comienzan con '> '
-      if (data.startsWith("> ")) return;
-
-      // Filtrar comandos /add y sus respuestas
-      const lines = data.split("\n");
-      const filteredLines = lines.filter((line) => {
-        const trimmedLine = line.trim();
-
-        // Filtrar comandos /add
-        if (trimmedLine.startsWith("/add ")) return false;
-
-        // Filtrar respuestas repetitivas pero permitir confirmaciones útiles
-        // NO filtrar "Added X to the chat" - estas son confirmaciones útiles
-
-        // Filtrar líneas que solo contienen nombres de archivos (contexto repetitivo)
-        if (
-          trimmedLine.match(
-            /^[^/\s]+\.(ts|js|py|java|cpp|c|h|md|txt|json|xml|html|css|scss|yaml|yml|php|rb|go|rs|kt|swift)$/,
-          )
-        ) {
-          return false;
+      // Acumular datos para parsear
+      const parsedOutput = parseAiderOutput(data);
+      
+      // Formatear información de Aider si está presente
+      if (Object.keys(parsedOutput.info).length > 0) {
+        const formattedInfo = formatAiderInfo(parsedOutput.info);
+        if (formattedInfo.trim().length > 0) {
+          this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: "agent_message_chunk",
+              content: { type: "text", text: formattedInfo },
+            },
+          });
         }
+      }
 
-        // Filtrar líneas con múltiples archivos separados por espacios
-        const fileExtensions =
-          /\.(ts|js|py|java|cpp|c|h|md|txt|json|xml|html|css|scss|yaml|yml|php|rb|go|rs|kt|swift)\s/g;
-        const fileMatches = trimmedLine.match(fileExtensions);
-        if (fileMatches && fileMatches.length >= 2) {
-          return false;
-        }
+      // Enviar mensaje del usuario si está presente
+      if (parsedOutput.userMessage.trim().length > 0) {
+        this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: { type: "text", text: parsedOutput.userMessage },
+          },
+        });
+      }
 
-        // Filtrar líneas vacías o con solo espacios después del filtrado
-        if (trimmedLine.length === 0) return false;
-
-        // Filtrar el texto del prompt del usuario que podría ser ecoado
-        // Esto previene duplicados cuando el usuario envía texto
-        if (session.lastPromptText && trimmedLine === session.lastPromptText)
-          return false;
-
-        return true;
-      });
-
-      const filteredData = filteredLines.join("\n");
-      if (filteredData.trim().length === 0) return;
-
-      this.client.sessionUpdate({
-        sessionId,
-        update: {
-          sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: filteredData },
-        },
-      });
+      // Enviar bloques de código si están presentes
+      for (const codeBlock of parsedOutput.codeBlocks) {
+        this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: { 
+              type: "text", 
+              text: `\`\`\`${codeBlock.path}\n${codeBlock.content}\n\`\`\`` 
+            },
+          },
+        });
+      }
     });
 
     processManager.on("error", (errorData: string) => {
