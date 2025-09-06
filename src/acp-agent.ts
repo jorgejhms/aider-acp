@@ -153,16 +153,32 @@ export class AiderAcpAgent implements protocol.Agent {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     processManager.on("data", (data: string) => {
-      // Filtrar líneas que comienzan con '> ' (comandos duplicados)
-      const filteredData = data
+      // Transformar líneas en lugar de solo filtrar
+      const processedLines = data
         .split('\n')
-        .filter(line => !line.startsWith('> '))
-        .join('\n');
+        .map(line => {
+          // Filtrar comandos duplicados
+          if (line.startsWith('> ')) {
+            return null;
+          }
+          // Agregar emoji a mensajes de archivos añadidos
+          if (line.startsWith('Added ')) {
+            return `📁 ${line}`;
+          }
+          // Agregar emoji de advertencia a mensajes de archivos ya en el chat
+          if (line.includes('is already in the chat')) {
+            return `⚠️ ${line}`;
+          }
+          return line;
+        })
+        .filter(line => line !== null) as string[];
       
-      if (filteredData.trim().length === 0) return;
+      if (processedLines.length === 0) return;
 
+      const processedData = processedLines.join('\n');
+      
       // Acumular datos para parsear
-      const parsedOutput = parseAiderOutput(filteredData);
+      const parsedOutput = parseAiderOutput(processedData);
       
       // Formatear información de Aider si está presente
       if (Object.keys(parsedOutput.info).length > 0) {
