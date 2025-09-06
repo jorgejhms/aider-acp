@@ -30,34 +30,41 @@ export function parseAiderOutput(output: string): {
 
   let inCodeBlock = false;
   let currentBlock: Partial<CodeBlock> = {};
-  let isUserMessage = true;
+  let isUserMessage = false;
+  let foundFirstUserMessage = false;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
 
-    if (trimmedLine.startsWith("```")) {
-      inCodeBlock = !inCodeBlock;
+    // Handle code blocks - use the original line to preserve exact formatting
+    if (line.startsWith("```")) {
       if (inCodeBlock) {
-        // Entering a new code block
-        const path = trimmedLine.substring(3).trim();
-        currentBlock = { path, content: "" };
-        isUserMessage = false; // Stop capturing as user message
-      } else {
-        // Exiting a code block
-        if (currentBlock.path && currentBlock.content) {
+        // Exiting a code block - add the closing line
+        if (currentBlock.path !== undefined) {
+          currentBlock.content += line + "\n";
           codeBlocks.push(currentBlock as CodeBlock);
         }
         currentBlock = {};
-        isUserMessage = true; // Resume capturing user message
+        inCodeBlock = false;
+        // After a code block, we might be in user message
+        isUserMessage = true;
+      } else {
+        // Entering a new code block
+        const path = line.substring(3).trim();
+        currentBlock = { path, content: line + "\n" };
+        inCodeBlock = true;
+        isUserMessage = false;
       }
       continue;
     }
 
     if (inCodeBlock) {
+      // Preserve the original line including any leading/trailing whitespace
       currentBlock.content += line + "\n";
       continue;
     }
 
+    // Parse information lines
     const versionMatch = trimmedLine.match(/^Aider (v[0-9.]+\S*)/);
     if (versionMatch) {
       info.version = versionMatch[1];
@@ -107,64 +114,64 @@ export function parseAiderOutput(output: string): {
       continue;
     }
 
-    if (
-      trimmedLine.startsWith("Warning:") ||
-      trimmedLine.startsWith("Cost estimates")
-    ) {
+    if (trimmedLine.startsWith("Warning:") || trimmedLine.includes("warning")) {
       info.warnings.push(trimmedLine);
       isUserMessage = false;
       continue;
     }
 
-    if (trimmedLine.startsWith("Error:")) {
+    if (trimmedLine.startsWith("Error:") || trimmedLine.includes("error")) {
       info.errors.push(trimmedLine);
       isUserMessage = false;
       continue;
     }
 
+    // Detect the start of user message (usually after metadata)
+    // Once we find non-metadata content, treat it as user message until a code block
+    if (
+      !foundFirstUserMessage &&
+      line.length > 0 &&
+      !trimmedLine.match(/^[A-Za-z\s]+:/) &&
+      !trimmedLine.startsWith("Aider v") &&
+      !line.startsWith("```")
+    ) {
+      foundFirstUserMessage = true;
+      isUserMessage = true;
+    }
+
     if (isUserMessage) {
+      // Preserve original line formatting for user message
       userMessageLines.push(line);
     }
   }
 
   return {
     info,
-    userMessage: userMessageLines.join("\n").trim(),
+    userMessage: userMessageLines.join("\n\n"),
     codeBlocks,
   };
 }
 
 export function formatAiderInfo(info: AiderInfo): string {
   const parts: string[] = [];
-  if (info.version) parts.push(`\n\n🚀 **Aider**: ${info.version}\n\n`);
-  if (info.mainModel)
-    parts.push(`\n\n🤖 **Main Model**: ${info.mainModel}\n\n`);
-  if (info.weakModel)
-    parts.push(`\n\n🤖 **Weak Model**: ${info.weakModel}\n\n`);
-  if (info.gitRepo) parts.push(`\n\n📁 **Repo**: ${info.gitRepo}\n\n`);
-  if (info.repoMap) parts.push(`\n\n🗺️ **Repo-map**: ${info.repoMap}\n\n`);
-  if (info.chatTokens) parts.push(`\n\n💬 **Tokens**: ${info.chatTokens}\n\n`);
-  if (info.cost) parts.push(`\n\n💰 **Cost**: ${info.cost}\n\n`);
 
-  let formattedString = parts.join("\n\n");
+  // Agregar todos los campos de información con formato consistente
+  if (info.version) parts.push(`🚀 **Aider**: ${info.version}`);
+  if (info.mainModel) parts.push(`🤖 **Main Model**: ${info.mainModel}`);
+  if (info.weakModel) parts.push(`🤖 **Weak Model**: ${info.weakModel}`);
+  if (info.gitRepo) parts.push(`📁 **Repo**: ${info.gitRepo}`);
+  if (info.repoMap) parts.push(`🗺️ **Repo-map**: ${info.repoMap}`);
+  if (info.chatTokens) parts.push(`💬 **Tokens**: ${info.chatTokens}`);
+  if (info.cost) parts.push(`💰 **Cost**: ${info.cost}`);
 
-  if (info.warnings.length > 0) {
-    const warningLines = info.warnings.map((w) => `\n\n⚠️ ${w}`).join("\n");
-    if (formattedString) {
-      formattedString += "\n\n" + warningLines;
-    } else {
-      formattedString = warningLines;
-    }
+  // Agregar advertencias y errores
+  info.warnings.forEach((w) => parts.push(`⚠️ ${w}`));
+  info.errors.forEach((e) => parts.push(`❌ ${e}`));
+
+  // Unir todas las partes con doble salto de línea
+  if (parts.length > 0) {
+    return parts.map((part) => part.trim()).join("\n\n") + "\n\n";
   }
 
-  if (info.errors.length > 0) {
-    const errorLines = info.errors.map((e) => `\n\n❌ ${e}`).join("\n");
-    if (formattedString) {
-      formattedString += "\n\n" + errorLines;
-    } else {
-      formattedString = errorLines;
-    }
-  }
-
-  return formattedString;
+  return "";
 }
