@@ -60,28 +60,74 @@ export class AiderAcpAgent implements protocol.Agent {
     const session = this.sessions.get(sessionId);
 
     if (!session || !session.aiderProcess) {
-      // In a real scenario, you might throw a RequestError here
       throw new Error("Invalid session or Aider process not running");
     }
 
+    // Separar el contenido de texto y los recursos
     const textContent = prompt.find((item) => item.type === "text");
-    if (!textContent || !textContent.text) {
-      throw new Error("No text content found in prompt");
-    }
+    const resources = prompt.filter((item) => item.type === "resource");
+
+    // Si no hay texto, usar cadena vacía
+    const promptText = textContent?.text || "";
+    // Almacenar el último prompt para filtrarlo de la salida
+    session.lastPromptText = promptText;
 
     const agentState = session.aiderProcess.getState();
-    const promptText = textContent.text;
 
+    // Si estamos esperando confirmación, manejar directamente
     if (agentState === AiderState.WAITING_FOR_CONFIRMATION) {
       session.aiderProcess.answerConfirmation(promptText);
-    } else {
-      session.aiderProcess.sendCommand(promptText);
+      return new Promise((resolve) => {
+        const turnCompletedListener = () => {
+          session.aiderProcess?.removeListener(
+            "turn_completed",
+            turnCompletedListener,
+          );
+          resolve({ stopReason: "end_turn" });
+        };
+        session.aiderProcess?.once("turn_completed", turnCompletedListener);
+      });
     }
 
-    // The SDK handles the promise. We resolve it when we get the 'turn_completed' event.
+    // Manejar recursos primero (archivos)
+    if (resources.length > 0) {
+      // Agregar todos los recursos usando comandos /add
+      for (const resource of resources) {
+        if (resource.type === "resource" && resource.resource) {
+          // Extraer la ruta del archivo del URI
+          const uri = resource.resource.uri;
+          let filePath: string;
+          if (uri.startsWith("file://")) {
+            filePath = uri.slice(7);
+          } else {
+            filePath = uri;
+          }
+          // Enviar comando /add silenciosamente
+          session.aiderProcess.sendCommand(`/add ${filePath}`);
+
+          // Esperar a que se complete el turno antes de continuar
+          await new Promise<void>((resolve) => {
+            const listener = () => {
+              session.aiderProcess?.removeListener("turn_completed", listener);
+              resolve();
+            };
+            session.aiderProcess?.once("turn_completed", listener);
+          });
+        }
+      }
+    }
+
+    // Luego enviar el mensaje de texto si no está vacío
+    if (promptText.trim().length > 0) {
+      session.aiderProcess.sendCommand(promptText);
+    } else if (resources.length > 0) {
+      // Si solo hay recursos, enviar un comando vacío para procesar
+      session.aiderProcess.sendCommand("");
+    }
+
+    // Esperar a que se complete el turno final
     return new Promise((resolve) => {
       const turnCompletedListener = () => {
-        // Clean up the listener to avoid memory leaks
         session.aiderProcess?.removeListener(
           "turn_completed",
           turnCompletedListener,
@@ -96,13 +142,62 @@ export class AiderAcpAgent implements protocol.Agent {
     sessionId: string,
     processManager: AiderProcessManager,
   ): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
     processManager.on("data", (data: string) => {
-      if (data.trim() === ">") return;
+      // Filtrar líneas vacías o solo el prompt '>'
+      if (data.trim() === ">" || data.trim().length === 0) return;
+
+      // Filtrar comandos ecoados que comienzan con '> '
+      if (data.startsWith("> ")) return;
+
+      // Filtrar comandos /add y sus respuestas
+      const lines = data.split("\n");
+      const filteredLines = lines.filter((line) => {
+        const trimmedLine = line.trim();
+
+        // Filtrar comandos /add
+        if (trimmedLine.startsWith("/add ")) return false;
+
+        // Filtrar respuestas repetitivas pero permitir confirmaciones útiles
+        // NO filtrar "Added X to the chat" - estas son confirmaciones útiles
+
+        // Filtrar líneas que solo contienen nombres de archivos (contexto repetitivo)
+        if (
+          trimmedLine.match(
+            /^[^/\s]+\.(ts|js|py|java|cpp|c|h|md|txt|json|xml|html|css|scss|yaml|yml|php|rb|go|rs|kt|swift)$/,
+          )
+        ) {
+          return false;
+        }
+
+        // Filtrar líneas con múltiples archivos separados por espacios
+        const fileExtensions =
+          /\.(ts|js|py|java|cpp|c|h|md|txt|json|xml|html|css|scss|yaml|yml|php|rb|go|rs|kt|swift)\s/g;
+        const fileMatches = trimmedLine.match(fileExtensions);
+        if (fileMatches && fileMatches.length >= 2) {
+          return false;
+        }
+
+        // Filtrar líneas vacías o con solo espacios después del filtrado
+        if (trimmedLine.length === 0) return false;
+
+        // Filtrar el texto del prompt del usuario que podría ser ecoado
+        // Esto previene duplicados cuando el usuario envía texto
+        if (session.lastPromptText && trimmedLine === session.lastPromptText)
+          return false;
+
+        return true;
+      });
+
+      const filteredData = filteredLines.join("\n");
+      if (filteredData.trim().length === 0) return;
+
       this.client.sessionUpdate({
         sessionId,
         update: {
           sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: data },
+          content: { type: "text", text: filteredData },
         },
       });
     });
@@ -185,10 +280,10 @@ ${question}`,
     const session = this.sessions.get(params.sessionId);
     if (session && session.aiderProcess) {
       try {
-        // Try to exit gracefully first
-        session.aiderProcess.sendCommand("/exit");
+        // Send Control-C to interrupt current operation (not exit)
+        session.aiderProcess.interrupt();
       } catch (e) {
-        // If sending command fails, just kill it
+        // If interrupt fails, fall back to stopping the process
         session.aiderProcess.stop();
       }
     }

@@ -59,33 +59,36 @@ export class AiderProcessManager extends EventEmitter {
 
   private handleOutput(data: Buffer): void {
     let chunk = data.toString();
-    
+
     // Filter out the echoed command lines that start with '> '
     if (this.lastCommand) {
       // Create a regex to match lines that start with '> ' followed by the exact command
       // We need to escape special regex characters in the command
-      const escapedCommand = this.lastCommand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const echoedRegex = new RegExp(`^> ${escapedCommand}[\\r\\n]*`, 'gm');
-      
+      const escapedCommand = this.lastCommand.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
+      const echoedRegex = new RegExp(`^> ${escapedCommand}[\\r\\n]*`, "gm");
+
       // Check if the entire chunk matches the echoed command
       if (chunk.match(echoedRegex)) {
         this.lastCommand = null;
         return;
       }
-      
+
       // Remove any instances of the echoed command from the chunk
-      const newChunk = chunk.replace(echoedRegex, '');
+      const newChunk = chunk.replace(echoedRegex, "");
       if (newChunk.length !== chunk.length) {
         chunk = newChunk;
         this.lastCommand = null;
       }
-      
+
       // If chunk is empty after filtering, return early
       if (chunk.length === 0) {
         return;
       }
     }
-    
+
     this.buffer += chunk;
     this.turnBuffer += chunk;
     this.emit("data", chunk);
@@ -140,6 +143,13 @@ export class AiderProcessManager extends EventEmitter {
     this.state = AiderState.PROCESSING;
     this.pendingConfirmation = null;
     this.sendCommand(answer);
+  }
+
+  public interrupt(): void {
+    if (this.process && this.process.pid) {
+      // Send SIGINT (Control-C) to interrupt the current operation
+      process.kill(this.process.pid, "SIGINT");
+    }
   }
 
   public stop(): void {
