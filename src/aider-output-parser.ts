@@ -161,16 +161,16 @@ export function formatAiderInfo(info: AiderInfo): string {
   if (info.weakModel) parts.push(`🤖 **Weak Model**: ${info.weakModel}`);
   if (info.gitRepo) parts.push(`📁 **Repo**: ${info.gitRepo}`);
   if (info.repoMap) parts.push(`🗺️ **Repo-map**: ${info.repoMap}`);
-  if (info.chatTokens) parts.push(`💬 **Tokens**: ${info.chatTokens}`);
+  if (info.chatTokens) parts.push(`\n\n💬 **Tokens**: ${info.chatTokens}`);
   if (info.cost) parts.push(`💰 **Cost**: ${info.cost}`);
 
   // Agregar advertencias y errores
   info.warnings.forEach((w) => parts.push(`⚠️ ${w}`));
   info.errors.forEach((e) => parts.push(`❌ ${e}`));
 
-  // Unir todas las partes con doble salto de línea
+  // Asegurar que cada parte esté en su propia línea
   if (parts.length > 0) {
-    return parts.map((part) => part.trim()).join("\n\n") + "\n\n";
+    return parts.join("\n\n") + "\n\n";
   }
 
   return "";
