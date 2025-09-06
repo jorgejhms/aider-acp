@@ -1,18 +1,12 @@
-#!/usr/bin/env node
+import { AgentSideConnection } from "@zed-industries/agent-client-protocol";
+import { AiderAcpAgent } from "./acp-agent.js";
+import { nodeToWebReadable, nodeToWebWritable } from "./utils.js";
 
-// stdout is used to send messages to the client
-// we redirect everything else to stderr to make sure it doesn't interfere with ACP
-console.log = console.error;
-console.info = console.error;
-console.warn = console.error;
-console.debug = console.error;
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-});
-
-import { runAcp as runAcp } from "./acp-agent.js";
-runAcp();
-
-// Keep process alive
-process.stdin.resume();
+// This is the main entry point for the ACP agent.
+// It creates a connection that pipes messages to and from the Zed editor,
+// and instantiates our agent class.
+new AgentSideConnection(
+  (client) => new AiderAcpAgent(client),
+  nodeToWebWritable(process.stdout),
+  nodeToWebReadable(process.stdin),
+);

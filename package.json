@@ -1,14 +1,21 @@
 {
   "name": "aider-acp",
+  "type": "module",
   "author": {
     "name": "Jorge Meneses",
     "email": "jorgejhms@gmail.com",
     "url": "http://github.com/jorgejhms"
   },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
   "dependencies": {
     "@zed-industries/agent-client-protocol": "^0.1.2"
   },
   "devDependencies": {
-    "@types/node": "^24.3.1"
+    "@types/node": "^24.3.1",
+    "typescript": "^5.0.0"
   }
 }

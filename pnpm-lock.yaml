@@ -15,6 +15,9 @@ importers:
       '@types/node':
         specifier: ^24.3.1
         version: 24.3.1
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.2
 
 packages:
 
@@ -23,6 +26,11 @@ packages:
 
   '@zed-industries/agent-client-protocol@0.1.2':
     resolution: {integrity: sha512-A1RCN7Uf09vngbhBVLiZENenKYOYD2OGiILLGXPaSBloDbem8xmLaDmrKQuYl0kjLJ1DcWmVaHUv97n1l5vJ6w==}
+
+  typescript@5.9.2:
+    resolution: {integrity: sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==}
+    engines: {node: '>=14.17'}
+    hasBin: true
 
   undici-types@7.10.0:
     resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
@@ -39,6 +47,8 @@ snapshots:
   '@zed-industries/agent-client-protocol@0.1.2':
     dependencies:
       zod: 3.25.76
+
+  typescript@5.9.2: {}
 
   undici-types@7.10.0: {}
 
