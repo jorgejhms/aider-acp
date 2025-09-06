@@ -169,6 +169,17 @@ export class AiderAcpAgent implements protocol.Agent {
           if (line.includes('is already in the chat')) {
             return `⚠️ ${line}`;
           }
+          // Filtrar líneas que son solo nombres de archivo (sin prefijos)
+          // Estas son las que aparecen antes del prompt y listan archivos en el contexto
+          // Verificamos si la línea parece ser solo un nombre de archivo sin otros caracteres especiales
+          if (line.trim().length > 0 && 
+              !line.includes(':') && 
+              !line.includes(' ') && 
+              line.includes('.') && 
+              !line.startsWith('📁') && 
+              !line.startsWith('⚠️')) {
+            return null;
+          }
           return line;
         })
         .filter(line => line !== null) as string[];
