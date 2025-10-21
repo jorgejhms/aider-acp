@@ -1,8 +1,8 @@
 # Agent Guidelines for aider-acp
 
 ## Build Commands
-- `npm install` - Install dependencies
-- `npm run build` - Compile TypeScript to JavaScript
+- `pnpm install` - Install dependencies
+- `pnpm run build` - Compile TypeScript to JavaScript
 - `node dist/index.js` - Run the compiled agent
 
 ## Code Style Guidelines
@@ -17,7 +17,7 @@
 
 ## Testing
 - No test framework configured yet - add Jest or similar when implementing tests
-- Run single test: `npm test -- <test-file>` (once configured)
+- Run single test: `pnpm test -- <test-file>` (once configured)
 
 ## Git Workflow
 - Use `git diff` to track changes after Aider modifications
