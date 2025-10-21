@@ -8,48 +8,56 @@ importers:
 
   .:
     dependencies:
-      '@zed-industries/agent-client-protocol':
-        specifier: ^0.1.2
-        version: 0.1.2
+      '@agentclientprotocol/sdk':
+        specifier: ^0.4.8
+        version: 0.4.8
+      typescript-parsec:
+        specifier: ^0.3.4
+        version: 0.3.4
     devDependencies:
       '@types/node':
-        specifier: ^24.3.1
-        version: 24.3.1
+        specifier: ^24.9.1
+        version: 24.9.1
       typescript:
-        specifier: ^5.0.0
-        version: 5.9.2
+        specifier: ^5.9.3
+        version: 5.9.3
 
 packages:
 
-  '@types/node@24.3.1':
-    resolution: {integrity: sha512-3vXmQDXy+woz+gnrTvuvNrPzekOi+Ds0ReMxw0LzBiK3a+1k0kQn9f2NWk+lgD4rJehFUmYy2gMhJ2ZI+7YP9g==}
+  '@agentclientprotocol/sdk@0.4.8':
+    resolution: {integrity: sha512-2hN2CMMWtYVHrUeuapwLu66S2wwOPhq+bLqAryl1cQjKjL5Mzkfq+oxFYFvGdPvBoKpJSxM2pIIQiUH8tGZ3rg==}
 
-  '@zed-industries/agent-client-protocol@0.1.2':
-    resolution: {integrity: sha512-A1RCN7Uf09vngbhBVLiZENenKYOYD2OGiILLGXPaSBloDbem8xmLaDmrKQuYl0kjLJ1DcWmVaHUv97n1l5vJ6w==}
+  '@types/node@24.9.1':
+    resolution: {integrity: sha512-QoiaXANRkSXK6p0Duvt56W208du4P9Uye9hWLWgGMDTEoKPhuenzNcC4vGUmrNkiOKTlIrBoyNQYNpSwfEZXSg==}
 
-  typescript@5.9.2:
-    resolution: {integrity: sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==}
+  typescript-parsec@0.3.4:
+    resolution: {integrity: sha512-6RD4xOxp26BTZLopNbqT2iErqNhQZZWb5m5F07/UwGhldGvOAKOl41pZ3fxsFp04bNL+PbgMjNfb6IvJAC/uYQ==}
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.10.0:
-    resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
+  undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
-  '@types/node@24.3.1':
-    dependencies:
-      undici-types: 7.10.0
-
-  '@zed-industries/agent-client-protocol@0.1.2':
+  '@agentclientprotocol/sdk@0.4.8':
     dependencies:
       zod: 3.25.76
 
-  typescript@5.9.2: {}
+  '@types/node@24.9.1':
+    dependencies:
+      undici-types: 7.16.0
 
-  undici-types@7.10.0: {}
+  typescript-parsec@0.3.4: {}
+
+  typescript@5.9.3: {}
+
+  undici-types@7.16.0: {}
 
   zod@3.25.76: {}
