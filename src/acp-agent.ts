@@ -1,7 +1,11 @@
-import * as protocol from "@zed-industries/agent-client-protocol";
+import * as protocol from "@agentclientprotocol/sdk";
 import { SessionState } from "./types.js";
 import { AiderProcessManager, AiderState } from "./aider-runner.js";
-import { parseAiderOutput, formatAiderInfo } from "./aider-output-parser.js";
+import {
+  parseAiderOutput,
+  formatAiderInfo,
+  convertEditBlocksToACPDiffs,
+} from "./aider-output-parser.js";
 
 export class AiderAcpAgent implements protocol.Agent {
   private sessions: Map<string, SessionState> = new Map();
@@ -33,7 +37,9 @@ export class AiderAcpAgent implements protocol.Agent {
   ): Promise<protocol.NewSessionResponse> {
     const sessionId = `sess_${Date.now()}`;
     const workingDir = params.cwd || process.cwd();
-    const model = "openrouter/deepseek/deepseek-chat-v3.1:free"; // Or get from params
+    // const model = "openrouter/deepseek/deepseek-chat-v3.1:free"; // Or get from params
+    // const model = "opentouer/deepseek/deepseek-chat-v3-0324:free"; // Or get from params
+    const model = "gemini/gemini-2.5-flash"; // Or get from params
 
     const aiderProcess = new AiderProcessManager(workingDir, model);
 
@@ -70,11 +76,11 @@ export class AiderAcpAgent implements protocol.Agent {
 
     // Combinar todos los textos y eliminar espacios vacíos
     const promptText = textContents
-        .map(item => item.text?.trim() || "")
-        .filter(text => text.length > 0)
-        .join(" ")
-        .trim();
-    
+      .map((item) => item.text?.trim() || "")
+      .filter((text) => text.length > 0)
+      .join(" ")
+      .trim();
+
     // Almacenar el último prompt para filtrarlo de la salida
     session.lastPromptText = promptText;
 
@@ -113,7 +119,7 @@ export class AiderAcpAgent implements protocol.Agent {
           }
           // Enviar comando /add
           session.aiderProcess.sendCommand(`/add ${filePath}`);
-          
+
           // Esperar a que se complete el turno antes de continuar
           await new Promise<void>((resolve) => {
             const listener = () => {
@@ -153,47 +159,60 @@ export class AiderAcpAgent implements protocol.Agent {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     processManager.on("data", (data: string) => {
-      // Transformar líneas en lugar de solo filtrar
+      // Parse the complete data first to extract edit blocks
+      const parsedOutput = parseAiderOutput(data);
+      const { info, userMessage, editBlocks, codeBlocks, prompts } =
+        parsedOutput;
+
+      // Then filter only the remaining text for display, avoiding interference with edit blocks
       const processedLines = data
-        .split('\n')
-        .map(line => {
-          // Filtrar comandos duplicados
-          if (line.startsWith('> ')) {
+        .split("\n")
+        .map((line) => {
+          // Only filter command echoes ("> command"), not diff markers
+          if (
+            line.startsWith("> ") &&
+            !line.includes(">>>") &&
+            !line.includes("<<<")
+          ) {
+            return null;
+          }
+          // Don't process lines that are part of code blocks or edit blocks
+          if (
+            line.startsWith("```") ||
+            line.includes("<<<<<<< SEARCH") ||
+            line.includes(">>>>>>> REPLACE") ||
+            line.includes("=======")
+          ) {
             return null;
           }
           // Agregar emoji a mensajes de archivos añadidos
-          if (line.startsWith('Added ')) {
+          if (line.startsWith("Added ")) {
             return `📁 ${line}`;
           }
           // Agregar emoji de advertencia a mensajes de archivos ya en el chat
-          if (line.includes('is already in the chat')) {
+          if (line.includes("is already in the chat")) {
             return `⚠️ ${line}`;
           }
           // Filtrar líneas que son solo nombres de archivo (sin prefijos)
-          // Estas son las que aparecen antes del prompt y listan archivos en el contexto
-          // Verificamos si la línea parece ser solo un nombre de archivo sin otros caracteres especiales
-          if (line.trim().length > 0 && 
-              !line.includes(':') && 
-              !line.includes(' ') && 
-              line.includes('.') && 
-              !line.startsWith('📁') && 
-              !line.startsWith('⚠️')) {
+          if (
+            line.trim().length > 0 &&
+            !line.includes(":") &&
+            !line.includes(" ") &&
+            line.includes(".") &&
+            !line.startsWith("📁") &&
+            !line.startsWith("⚠️")
+          ) {
             return null;
           }
           return line;
         })
-        .filter(line => line !== null) as string[];
-      
-      if (processedLines.length === 0) return;
+        .filter((line) => line !== null) as string[];
 
-      const processedData = processedLines.join('\n');
-      
-      // Acumular datos para parsear
-      const parsedOutput = parseAiderOutput(processedData);
-      
+      const processedData = processedLines.join("\n");
+
       // Formatear información de Aider si está presente
-      if (Object.keys(parsedOutput.info).length > 0) {
-        const formattedInfo = formatAiderInfo(parsedOutput.info);
+      if (Object.keys(info).length > 0) {
+        const formattedInfo = formatAiderInfo(info);
         if (formattedInfo.trim().length > 0) {
           this.client.sessionUpdate({
             sessionId,
@@ -205,26 +224,62 @@ export class AiderAcpAgent implements protocol.Agent {
         }
       }
 
-      // Enviar mensaje del usuario si está presente
-      if (parsedOutput.userMessage.trim().length > 0) {
+      // Mostrar solicitudes de confirmación/texto interactivo
+      for (const promptLine of prompts) {
         this.client.sessionUpdate({
           sessionId,
           update: {
             sessionUpdate: "agent_message_chunk",
-            content: { type: "text", text: parsedOutput.userMessage },
+            content: {
+              type: "text",
+              text: `**Aider requires input:**\n${promptLine}`,
+            },
           },
         });
       }
 
-      // Enviar bloques de código si están presentes
-      for (const codeBlock of parsedOutput.codeBlocks) {
+      // Enviar mensaje del usuario si está presente
+      if (userMessage.trim().length > 0) {
         this.client.sessionUpdate({
           sessionId,
           update: {
             sessionUpdate: "agent_message_chunk",
-            content: { 
-              type: "text", 
-              text: `\`\`\`${codeBlock.path}\n${codeBlock.content}\n\`\`\`` 
+            content: { type: "text", text: userMessage },
+          },
+        });
+      }
+
+      // Enviar bloques de edición como tool calls con diffs ACP
+      if (editBlocks.length > 0) {
+        const acpDiffs = convertEditBlocksToACPDiffs(editBlocks);
+        for (let i = 0; i < acpDiffs.length; i++) {
+          const diff = acpDiffs[i];
+          const toolCallId = `edit_${Date.now()}_${i}`;
+
+          // Crear tool call para la edición
+          this.client.sessionUpdate({
+            sessionId,
+            update: {
+              sessionUpdate: "tool_call",
+              toolCallId,
+              title: `Editing ${diff.path}`,
+              kind: "edit",
+              status: "completed",
+              content: [diff],
+            },
+          });
+        }
+      }
+
+      // Enviar bloques de código si están presentes
+      for (const codeBlock of codeBlocks) {
+        this.client.sessionUpdate({
+          sessionId,
+          update: {
+            sessionUpdate: "agent_message_chunk",
+            content: {
+              type: "text",
+              text: `\`\`\`${codeBlock.path}\n${codeBlock.content}\n\`\`\``,
             },
           },
         });
