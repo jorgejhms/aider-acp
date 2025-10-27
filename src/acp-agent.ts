@@ -37,9 +37,15 @@ export class AiderAcpAgent implements protocol.Agent {
   ): Promise<protocol.NewSessionResponse> {
     const sessionId = `sess_${Date.now()}`;
     const workingDir = params.cwd || process.cwd();
-    // const model = "openrouter/deepseek/deepseek-chat-v3.1:free"; // Or get from params
-    // const model = "opentouer/deepseek/deepseek-chat-v3-0324:free"; // Or get from params
-    const model = "gemini/gemini-2.5-flash"; // Or get from params
+
+    // Model selection priority:
+    // 1. From params._meta.model (passed by client like Zed)
+    // 2. From environment variable AIDER_MODEL
+    // 3. Default fallback
+    const model =
+      (params._meta as any)?.model ||
+      process.env.AIDER_MODEL ||
+      "gemini/gemini-2.5-flash";
 
     const aiderProcess = new AiderProcessManager(workingDir, model);
 
