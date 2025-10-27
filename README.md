@@ -10,6 +10,7 @@ This project allows you to use Aider as an AI coding assistant inside Zed, revie
 - **Runs as a standalone ACP agent**: Zed spawns this project as an external process.
 - **Communicates with Zed via ACP (JSON-RPC over stdio)**.
 - **Communicates with Aider via subprocess**: calls the `aider` CLI binary under the hood.
+- **Configurable AI models**: Choose from various LLM providers (Gemini, Claude, GPT, DeepSeek, etc.).
 - **Diff workflow**:
   1. Zed sends a prompt via ACP.
   2. This bridge launches Aider with the request.
@@ -79,13 +80,61 @@ Add this configuration to your Zed settings (`cmd/ctrl + ,` → Open `settings.j
   "agent_servers": {
     "Aider": {
       "command": "node",
-      "args": ["/absolute/path/to/your/aider-acp/dist/index.js"]
+      "args": ["/absolute/path/to/your/aider-acp/dist/index.js"],
+      "env": {
+        "AIDER_MODEL": "gemini/gemini-2.5-flash"
+      }
     }
   }
 }
 ```
 
 > **Important**: Replace `/absolute/path/to/your/aider-acp/` with the actual absolute path to your cloned project.
+
+#### Model Configuration
+
+You can specify which AI model Aider should use in three ways (in order of priority):
+
+**Option 1: Via Zed Configuration (Recommended)**
+
+Set the model in your Zed `settings.json` using the `env` property as shown above:
+```json
+"env": {
+  "AIDER_MODEL": "openrouter/deepseek/deepseek-chat-v3.1:free"
+}
+```
+
+**Option 2: System Environment Variable**
+
+Set the `AIDER_MODEL` environment variable in your shell before launching Zed:
+
+```bash
+# In your shell configuration (~/.zshrc, ~/.bashrc, etc.)
+export AIDER_MODEL="claude-3-5-sonnet-20241022"
+
+# Then launch Zed from terminal
+zed
+```
+
+**Option 3: Change Default in Code**
+
+Edit `src/acp-agent.ts` around line 48 and change the default:
+```typescript
+const model =
+  (params._meta as any)?.model ||
+  process.env.AIDER_MODEL ||
+  "your-preferred-model-here";
+```
+
+Then rebuild with `pnpm run build`.
+
+**Popular Model Options:**
+- `gemini/gemini-2.5-flash` (default, fast and free)
+- `claude-3-5-sonnet-20241022` (powerful, requires API key)
+- `openrouter/deepseek/deepseek-chat-v3.1:free` (free via OpenRouter)
+- `gpt-4o` (OpenAI, requires API key)
+
+> **Note**: Make sure you have the necessary API keys configured in your environment for non-free models (e.g., `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.).
 
 ### 4. Use in Zed
 
@@ -145,18 +194,19 @@ Aider: *receives context and makes improvements*
 ## ✅ Current Status
 
 - ✅ **Basic ACP loop** (initialize + session management + prompt and response)
-- ✅ **Aider subprocess integration** with proper argument handling and file editing.
+- ✅ **Aider subprocess integration** with proper argument handling and file editing
 - ✅ **Real-time streaming updates** via session/update notifications
+- ✅ **Configurable model selection** via Zed settings, environment variables, or defaults
 
 ---
 
 ## 🔮 Future Roadmap
 
 - [ ] **Diff parsing to ACP edits**: Convert SEARCH/REPLACE blocks to structured file_edit blocks
-- [ ] **Model selection**: UI for choosing Aider's LLM models
+- [ ] **Model selection UI**: Add dynamic model switching within Zed's UI
 - [ ] **File context**: Better integration with Zed's file selection
 - [ ] **Slash commands**: Implement aider slash commands for quick actions
-- [ ] **Format Output**: Correctly format all aider mensajes (ask for user input, error mensages, additional info, etc)
+- [ ] **Format Output**: Correctly format all aider messages (ask for user input, error messages, additional info, etc)
 
 ---
 
